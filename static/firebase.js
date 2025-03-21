@@ -24,7 +24,7 @@ function initApp() {
   });
 }
 
-// check if authentication is disabled via query parameter
+// Check if authentication is disabled via query parameter
 function authDisabled() {
   const urlParams = new URLSearchParams(window.location.search);
   const hostname = window.location.hostname;
@@ -32,14 +32,11 @@ function authDisabled() {
   return urlParams.get('auth') === 'false' && hostname === 'localhost';
 }
 
-
-// create ID token
+// Create ID token
 async function createIdToken() {
   if (authDisabled()) {
     console.warn('Auth is disabled. Returning dummy ID token.');
-    return new Promise((resolve) => {
-        resolve('dummyToken');  // return a dummy ID token
-    })
+    return new Promise(resolve => resolve('dummyToken'));  // Return a dummy ID token
   } else {
     return await firebase.auth().currentUser.getIdToken();
   }
@@ -59,27 +56,24 @@ window.onload = function () {
 function signIn() {
   const provider = new firebase.auth.GoogleAuthProvider();
   provider.addScope('https://www.googleapis.com/auth/userinfo.email');
-  firebase
-    .auth()
+  firebase.auth()
     .signInWithPopup(provider)
     .then(result => {
-      // Returns the signed in user along with the provider's credential
       console.log(`${result.user.displayName} logged in.`);
       window.alert(`Welcome ${result.user.displayName}!`);
     })
     .catch(err => {
-      console.log(`Error during sign in: ${err.message}`);
+      console.error(`Error during sign in: ${err.message}`);
       window.alert(`Sign in failed. Retry or check your browser logs.`);
     });
 }
 
 function signOut() {
-  firebase
-    .auth()
+  firebase.auth()
     .signOut()
-    .then(result => {})
+    .then(() => console.log('User signed out successfully'))
     .catch(err => {
-      console.log(`Error during sign out: ${err.message}`);
+      console.error(`Error during sign out: ${err.message}`);
       window.alert(`Sign out failed. Retry or check your browser logs.`);
     });
 }
@@ -110,23 +104,35 @@ function toggle() {
  */
 async function vote(team) {
   console.log(`Submitting vote for ${team}...`);
+
   if (firebase.auth().currentUser || authDisabled()) {
-    // Retrieve JWT to identify the user to the Identity Platform service.
-    // Returns the current token if it has not expired. Otherwise, this will
-    // refresh the token and return a new one.
     try {
       const token = await createIdToken();
 
-      /*
-       * ++++ YOUR CODE HERE ++++
-       */
-      window.alert(`Not implemented yet!`);
+      const response = await fetch("/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Authorization": `Bearer ${token}`
+        },
+        body: new URLSearchParams({ team })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(result.message || "Vote recorded");
+        window.alert(`Vote for ${team} was successful!`);
+        window.location.reload();  // Refresh page to update counts
+      } else {
+        const errorData = await response.json();
+        window.alert(`Error: ${errorData.detail || 'Failed to submit vote.'}`);
+      }
 
     } catch (err) {
-      console.log(`Error when submitting vote: ${err}`);
-      window.alert('Something went wrong... Please try again!');
+      console.error("Error when submitting vote:", err);
+      window.alert("Something went wrong... Please try again!");
     }
   } else {
-    window.alert('User not signed in.');
+    window.alert("User not signed in.");
   }
 }
